@@ -9,6 +9,8 @@ A projekt ideális:
 * soros kommunikáció (Serial) gyakorlásához
 * állapotgépes gondolkodás elsajátításához
 
+Szerző: Mészáros Bálint F7L26H
+
 ---
 
 ## 🎯 Játékmenet – Röviden
