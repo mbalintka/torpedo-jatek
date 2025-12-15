@@ -1,0 +1,27 @@
+# =============================
+# Torpedo Játék – .gitignore
+# Minimal & clean (Arduino + C)
+# =============================
+
+# -------- Build artifacts --------
+*.o
+*.out
+*.elf
+*.hex
+*.bin
+
+# Compiled executable
+torpedo_jatek
+
+# -------- Build dirs --------
+build/
+
+# -------- Editor / IDE --------
+.vscode/
+.idea/
+*~
+*.swp
+
+# -------- OS --------
+.DS_Store
+Thumbs.db
