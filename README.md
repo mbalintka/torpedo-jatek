@@ -162,9 +162,19 @@ gcc torpedo_jatek.c -o torpedo_jatek
 
 ### ▶️ Futtatás
 
+> Ha telepítve van az Arduino CLI, válaszd ki a boardodat:
+>
+> ```MAKEFILE
+>BOARD = arduino:avr:uno
+> ```
+
 ```bash
-./torpedo_jatek
+git clone https://github.com/mbalintka/torpedo-jatek.git
+cd ./torpedo-jatek
+(make upload)
+make run
 ```
+
 
 Beépített parancsok:
 
