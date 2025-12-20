@@ -21,12 +21,32 @@ char MISS = 'M';
 // Array to store the COUNT of ships of each size (index 2 for size 2, etc.)
 int shipCounts[5] = {0}; // shipCounts[2] = count of size-2 ships, shipCounts[3] = count of size-3 ships, etc.
 
+int hitsCount = 0;
+int missesCount = 0;
+
 
 bool initializeGame();
 void placeShipsRandomly();
 void printMap();
 void handleAttack();
 bool isShipSunk(int , int , char);
+
+// Helper to print current hit rate
+void printHitRate() {
+  int shots = hitsCount + missesCount;
+  if (shots == 0) {
+    Serial.println("Hit rate: N/A (no shots yet)");
+    return;
+  }
+  float rate = (100.0 * (float)hitsCount) / (float)shots;
+  Serial.print("Hit rate: ");
+  Serial.print(rate, 2); // two decimals
+  Serial.print("% (");
+  Serial.print(hitsCount);
+  Serial.print("/");
+  Serial.print(shots);
+  Serial.println(")");
+}
 
 // --- CORE FUNCTION: CHECK FOR GLOBAL COMMANDS (RESTART) ---
 bool checkGlobalCommand() {
@@ -38,22 +58,29 @@ bool checkGlobalCommand() {
     inputString.toLowerCase();
 
     if (inputString.equals("restart")) {
-        // Resetting the game state by setting the initialization flag back to zero
+        // Resetting the game state
         MAP_WIDTH = 0;
         MAP_HEIGHT = 0;
         hitsRemaining = 0;
+        hitsCount = 0;    // reset stats
+        missesCount = 0;  // reset stats
         // Optionally, reset shipCounts array if needed, but it will be overwritten in initializeGame()
         
         Serial.println("RST"); // RST for Restart Acknowledged
         Serial.println("TORPEDO GAME RESTARTING...");
-        Serial.println("STEP 1: Send five numbers: WIDTH HEIGHT S2_COUNT S3_COUNT S4_COUNT (e.g., 10 10 2 1 1)");
+        Serial.println("STEP 1: Send five numbers: WIDTH HEIGHT S2_COUNT S3_COUNT (e.g., 10 10 2 1 1)");
         return true; // Command was processed
     }
-    
+    if (inputString.equals("hit rate") || inputString.equals("hitrate")) {
+    // Print the current hit/miss statistics
+    printHitRate();
+    return true;
+}
+
     // Add other global commands here if needed (e.g., "status")
     
     // If we read something that wasn't a recognized global command, 
-    // we should let the main loop know that the input was consumed.
+   // we should let the main loop know that the input was consumed.
    // if (inputString.length() > 0) {
     //    return true;
     //}
@@ -76,7 +103,7 @@ void setup() {
   
   Serial.println("TORPEDO GAME INITIALIZATION");
   Serial.println("---------------------------------");
-  Serial.println("STEP 1: Send five numbers: WIDTH HEIGHT S2_COUNT S3_COUNT S4_COUNT (e.g., 10 10 2 1 1)");
+  Serial.println("STEP 1: Send five numbers: WIDTH HEIGHT S2_COUNT S3_COUNT (e.g., 10 10 2 1 1)");
 }
 
 
@@ -91,11 +118,6 @@ void loop() {
   // Phase 1: Initialization (Only runs when the map hasn't been set up)
   if (MAP_WIDTH == 0) { 
     if (Serial.available() > 0) {
-      if (Serial.peek() == 'r' || Serial.peek() == 'R') {
-                 if (checkGlobalCommand()) {
-                    return; // Restart command handled. Return to loop for new setup.
-                 }
-            }
       // Attempt to initialize the game with the first set of input
       if (initializeGame()) {
           // If successful, proceed to placement
@@ -114,18 +136,19 @@ void loop() {
   // Phase 2: Gameplay (Only runs AFTER the map has been set up)
   else { // MAP_WIDTH > 0
   if (Serial.available() > 0) {
-    if (Serial.peek() == 'r' || Serial.peek() == 'R') {
-                 if (checkGlobalCommand()) {
-                    return; // Restart command handled. Return to loop for new setup.
-                 }
+        // If the next char is alphabetic, treat it as a potential global command
+        char pk = Serial.peek();
+        if ((pk >= 'A' && pk <= 'Z') || (pk >= 'a' && pk <= 'z')) {
+            if (checkGlobalCommand()) {
+                return; // command handled (e.g., restart or hit rate)
             }
+        }
         if (hitsRemaining > 0) {
             handleAttack();
         } else {
-           // Serial.println("\n*** CONGRATULATIONS! ALL SHIPS SUNK! GAME OVER ***");
+            Serial.println("\n*** CONGRATULATIONS! ALL SHIPS SUNK! GAME OVER ***");
             // Clear input buffer to prevent repeating the message
             while(Serial.available() > 0) Serial.read(); 
-            return;
         }
     }
   }
@@ -176,7 +199,9 @@ bool initializeGame() {
     int totalShipSegments = (shipCounts[2] * 2) + (shipCounts[3] * 3) + (shipCounts[4] * 4);
     
     // **<- INITIALIZE IT HERE ->**
-    //hitsRemaining = totalShipSegments;
+    hitsRemaining = totalShipSegments;
+    hitsCount = 0;    // reset stats for new game
+    missesCount = 0;  // reset stats for new game
     if (MAP_WIDTH <= 0 || MAP_HEIGHT <= 0 || MAP_WIDTH > MAX_SIZE || MAP_HEIGHT > MAX_SIZE) {
         Serial.println("ERROR: Invalid map dimensions (must be 1-20).");
         MAP_WIDTH = 0; MAP_HEIGHT = 0; return false;
@@ -269,7 +294,6 @@ void placeShipsRandomly() {
             int placeR = startR + (orientation == 1 ? k : 0);
             int placeC = startC + (orientation == 0 ? k : 0);
             gameMap[placeR][placeC] = shipChar;
-            hitsRemaining++;
           }
           placed = true;
           Serial.print("  Placed Size-"); Serial.print(shipSize); Serial.print(" ship after "); Serial.print(attempts); Serial.println(" attempts.");
@@ -373,6 +397,7 @@ void handleAttack() {
         Serial.println("RESULT: MISS!");
         gameMap[r][c] = MISS;
         publicMap[r][c] = MISS;
+        missesCount++; // Increment misses count
     } else if (cell == MISS || cell == HIT) {
         Serial.println("RESULT: Already targeted!");
     } else { // It's a ship segment ('2', '3', or '4')
@@ -385,6 +410,7 @@ void handleAttack() {
         gameMap[r][c] = HIT;
         publicMap[r][c] = HIT;
         hitsRemaining--;
+        hitsCount++; // Increment hits count
         
         // 3. CHECK FOR SUNK SHIP
         if (isShipSunk(r, c, shipChar)) {
@@ -395,14 +421,10 @@ void handleAttack() {
         // 4. CHECK FOR GAME OVER
         if (hitsRemaining == 0) {
             Serial.println("\n*** CONGRATULATIONS! ALL SHIPS SUNK! GAME OVER ***");
-            Serial.println("\nType 'restart' for new game, 'quit' or 'exit' to leave.");
-            MAP_WIDTH = 0;
-            MAP_HEIGHT = 0;
-            hitsRemaining = 0;
         }
     }
     
-    if (hitsRemaining!=0) printMap();
+    printMap();
 }
 
 bool isShipSunk(int r, int c, char shipChar) {
@@ -421,7 +443,7 @@ bool isShipSunk(int r, int c, char shipChar) {
         }
     }
     
-    // 3. If the loop completes without finding any original ship characters, 
+    // 3. If the loop completes without finding any original ship character, 
     // it means every segment of that type has been converted to 'H', and the ship is sunk.
     
     // NOTE: This implementation assumes all ships of the same size (e.g., all size 3 ships) 
