@@ -70,8 +70,7 @@ void print_manual(void) {
     printf("To send commands to the device, type them and press Enter\n");
     printf("Examples:\n");
     printf("  10 10 2 1 1     - send numbers/commands to the Arduino\n");
-    printf("  restart         - restart the game\n");
-    printf("  hit rate         - to print current game hit rate\n");
+    printf("  restart         - a device command, forwarded to the Arduino\n");
     printf("---------------------------\n\n");
     fflush(stdout);
 }
