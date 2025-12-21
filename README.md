@@ -98,9 +98,9 @@ ROW COLUMN
 
 A rendszer visszajelzése:
 
-* `MISS` → mellélövés
-* `HIT` → találat
-* `Already targeted` → már lőtt mező
+* `RESULT: MISS!` → mellélövés
+* `RESULT: HIT!` → találat
+* `RESULT: Already targeted!` → már lőtt mező
 
 Ezután megjelenik az aktuális **publikus térkép**.
 
@@ -120,15 +120,40 @@ A hajók (`2`, `3`, `4`) **nem láthatók** a játékos számára.
 
 ## 🔁 Globális Parancsok
 
+Küldhetsz egyszerű szöveges parancsokat is — azokat bármikor elfogadja a játék (soros bemenet esetén):
+
 ```
-restart
+restart       - újraindítja a játékot és visszatér az inicializáláshoz
+hit rate      - kiírja az aktuális játékban elért találati arányt (hány találat / hány lövés, %-ban, 2 tizedes)
+high score    - kiírja a session (azaz a jelenlegi board bekapcsolása óta) legjobb találati arányát
 ```
 
-Hatása:
+Példa kimenetek:
 
-* újraindítja a játékot
-* törli az állapotot
-* visszatér az inicializáláshoz
+* hit rate:
+```
+Hit rate: 63.64% (7/11)
+```
+
+* high score (ha van elérhető befejezett játék):
+```
+High score (last 5 games): 78.57%
+```
+
+---
+
+## 🏆 Hozzáadott statisztikai funkciók
+
+- Hitrate (aktuális játék): a `hit rate` parancs kiírja az aktuális játékban eddig elért találati arányt (találatok vs összes lövés).
+- High score (session-only, last 5): a játék megtartja a legutóbbi öt befejezett játék találati arányát a memóriában, és a `high score` parancs kiírja ezek közül a legmagasabbat.
+  * A pontszámok csak az aktuális session alatt élnek — bekapcsolás után újraindul a gyűjtés.
+  * A legjobb érték automatikusan megjelenik a játék végén is (amikor az összes hajó elsüllyedt).
+
+---
+
+## 🧾 Eredmény mentés
+
+A high score és a hitrate csak a RAM-ban tárolódik (session-only). Nem íródik EEPROM-ba vagy más tartós tárhelyre — kapcsoló kikapcsoláskor az adatok elvesznek.
 
 ---
 
@@ -140,7 +165,6 @@ A repository tartalmaz egy **Linuxos C kliensprogramot**, amely kényelmes termi
 
 * Kétirányú kommunikáció (`select()` alapú)
 * Egyszerre figyeli:
-
   * billentyűzetet (stdin)
   * soros portot (`/dev/ttyACM0`)
 * Kezeli a `CTRL+C`, `exit`, `quit` parancsokat
@@ -190,23 +214,13 @@ Minden más bemenet **változtatás nélkül** továbbításra kerül az Arduino
 
 ---
 
-## 🧠 Tervezési Megjegyzések
-
-* A hajók véletlenszerűen kerülnek elhelyezésre
-* Az azonos méretű hajók nem egyediek
-* Egy hajóméret akkor számít elsüllyesztettnek, ha minden szegmense elfogy
-* A PC kliens nem tartalmaz játéklogikát
-
----
-
 ## 📌 Összefoglalás
 
 Ez a projekt egy **letisztult, oktatási célú Torpedó implementáció**, amely bemutatja:
 
 * Arduino Serial kommunikációt
 * determinisztikus állapotkezelést
+* session-only statisztikák (hitrate, last-5 highscore)
 * PC–mikrokontroller együttműködést
-* C és beágyazott C++ integrációt
 
 🎯 Kiváló alap további bővítésekhez (LCD, UI, AI lövések, hálózat stb.).
-# torpedo-jatek
