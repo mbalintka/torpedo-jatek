@@ -69,8 +69,10 @@ void print_manual(void) {
     printf("  exit or quit   - exit the program\n\n");
     printf("To send commands to the device, type them and press Enter\n");
     printf("Examples:\n");
-    printf("  10 10 2 1 1     - send numbers/commands to the Arduino\n");
-    printf("  restart         - a device command, forwarded to the Arduino\n");
+    printf("  10 10 2 1 1     - send map dimensions and ship count after game start\n");
+    printf("  restart         - reinitialize the game\n");
+    printf("  hit rate        - show current game hit rate\n");
+    printf("  restart         - show highest hit rate from the last 5 completed games from current session\n");
     printf("---------------------------\n\n");
     fflush(stdout);
 }
