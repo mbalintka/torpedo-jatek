@@ -21,6 +21,12 @@ char MISS = 'M';
 // Array to store the COUNT of ships of each size (index 2 for size 2, etc.)
 int shipCounts[5] = {0}; // shipCounts[2] = count of size-2 ships, shipCounts[3] = count of size-3 ships, etc.
 
+// Session-only: keep the last 5 finished-game hit rates (percent). Not persisted across power cycles.
+float lastFiveScores[5] = { -1.0, -1.0, -1.0, -1.0, -1.0 };
+int lastFiveIndex = 0; // next write position (circular)
+int lastFiveCount = 0; // number of valid entries (0..5)
+
+
 int hitsCount = 0;
 int missesCount = 0;
 
@@ -48,6 +54,35 @@ void printHitRate() {
   Serial.println(")");
 }
 
+// Push a finished-game hit rate (percent) into the circular buffer
+void pushSessionScore(float rate) {
+  lastFiveScores[lastFiveIndex] = rate;
+  lastFiveIndex = (lastFiveIndex + 1) % 5;
+  if (lastFiveCount < 5) lastFiveCount++;
+}
+
+
+// Return best hit rate among stored lastFiveScores, or -1 if none
+float getSessionHigh() {
+  float best = -1.0;
+  for (int i = 0; i < 5; i++) {
+    if (lastFiveScores[i] >= 0.0 && lastFiveScores[i] > best) best = lastFiveScores[i];
+  }
+  return best;
+}
+
+// Print the session high score
+void printHighScore() {
+  float h = getSessionHigh();
+  if (h < 0.0) {
+    Serial.println("High score: N/A (no finished games this session)");
+  } else {
+    Serial.print("High score (last 5 games): ");
+    Serial.print(h, 2);
+    Serial.println("%");
+  }
+}
+
 // --- CORE FUNCTION: CHECK FOR GLOBAL COMMANDS (RESTART) ---
 bool checkGlobalCommand() {
     // We only read a short string, expecting a simple command like "restart"
@@ -68,7 +103,7 @@ bool checkGlobalCommand() {
         
         Serial.println("RST"); // RST for Restart Acknowledged
         Serial.println("TORPEDO GAME RESTARTING...");
-        Serial.println("STEP 1: Send five numbers: WIDTH HEIGHT S2_COUNT S3_COUNT (e.g., 10 10 2 1 1)");
+        Serial.println("STEP 1: Send five numbers: WIDTH HEIGHT S2_COUNT S3_COUNT S4_COUNT (e.g., 10 10 2 1 1)");
         return true; // Command was processed
     }
     if (inputString.equals("hit rate") || inputString.equals("hitrate")) {
@@ -76,14 +111,12 @@ bool checkGlobalCommand() {
     printHitRate();
     return true;
 }
+    if (inputString.equals("high score") || inputString.equals("highscore")) {
+      printHighScore();
+      return true;
+    }
 
-    // Add other global commands here if needed (e.g., "status")
     
-    // If we read something that wasn't a recognized global command, 
-   // we should let the main loop know that the input was consumed.
-   // if (inputString.length() > 0) {
-    //    return true;
-    //}
     return false; // No command found
 }
 
@@ -119,6 +152,12 @@ void loop() {
   if (MAP_WIDTH == 0) { 
     if (Serial.available() > 0) {
       // Attempt to initialize the game with the first set of input
+      char pk = Serial.peek();
+        if ((pk >= 'A' && pk <= 'Z') || (pk >= 'a' && pk <= 'z')) {
+            if (checkGlobalCommand()) {
+                return; // command handled (e.g., restart or hit rate)
+            }
+        }
       if (initializeGame()) {
           // If successful, proceed to placement
           placeShipsRandomly();
@@ -199,7 +238,7 @@ bool initializeGame() {
     int totalShipSegments = (shipCounts[2] * 2) + (shipCounts[3] * 3) + (shipCounts[4] * 4);
     
     // **<- INITIALIZE IT HERE ->**
-    hitsRemaining = totalShipSegments;
+   // hitsRemaining = totalShipSegments;
     hitsCount = 0;    // reset stats for new game
     missesCount = 0;  // reset stats for new game
     if (MAP_WIDTH <= 0 || MAP_HEIGHT <= 0 || MAP_WIDTH > MAX_SIZE || MAP_HEIGHT > MAX_SIZE) {
@@ -294,6 +333,7 @@ void placeShipsRandomly() {
             int placeR = startR + (orientation == 1 ? k : 0);
             int placeC = startC + (orientation == 0 ? k : 0);
             gameMap[placeR][placeC] = shipChar;
+            hitsRemaining++;
           }
           placed = true;
           Serial.print("  Placed Size-"); Serial.print(shipSize); Serial.print(" ship after "); Serial.print(attempts); Serial.println(" attempts.");
@@ -420,6 +460,16 @@ void handleAttack() {
 
         // 4. CHECK FOR GAME OVER
         if (hitsRemaining == 0) {
+           // compute final hit rate for this finished game
+            int shots = hitsCount + missesCount;
+            float finalRate = (shots == 0) ? 0.0 : (100.0 * (float)hitsCount) / (float)shots;
+            // store in session buffer (last 5 games)
+            pushSessionScore(finalRate);
+            MAP_WIDTH = 0;
+            MAP_HEIGHT = 0;
+            hitsRemaining = 0;
+            hitsCount = 0;    // reset stats
+            missesCount = 0;  // reset stats
             Serial.println("\n*** CONGRATULATIONS! ALL SHIPS SUNK! GAME OVER ***");
         }
     }
